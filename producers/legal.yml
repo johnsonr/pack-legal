@@ -44,6 +44,13 @@
         - "text": the clause VERBATIM from the excerpt — never paraphrase, never invent
         - "answer": the short normalized answer when the clause has one (a date, a duration like
           '30 days', a jurisdiction like 'Delaware', a yes/no) — omit otherwise
+        - "section": the clause's OWN section number exactly as written when the excerpt shows one
+          (e.g. '10.2', '14.3', '6.1') — omit otherwise, never invent
+        - "title": the clause's own heading exactly as written when the excerpt shows one
+          (e.g. 'Effect of Termination', 'Choice of Law; Arbitration; Venue') — omit otherwise
+        - "references": section numbers this clause CITES elsewhere in the contract
+          ('as discussed in Section 9 of this Agreement' → ["9"]) as an array of strings —
+          omit when the clause cites nothing
         - "sourceIndex": the excerpt number the clause came from
 
       Only extract clauses actually present in the excerpts. Skip narrative, recitals, addresses,

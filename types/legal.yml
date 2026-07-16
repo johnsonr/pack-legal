@@ -32,13 +32,82 @@
         MATCH (d)-[:HAS_CLAUSES]->(c:Clause)
         WHERE c.category IN ['Renewal Term', 'Notice Period To Terminate Renewal']
         RETURN c.category AS category, c.text AS clause
+    # A WHICH-contract question must DISCRIMINATE in the clause text, not just list every
+    # contract's clause of that category: seed the corpus noun, then filter c.text by the
+    # question's distinguishing term.
+    - q: "which of my contracts is governed by acme law?"
+      cypher: |
+        MATCH (:Concept {value:'contract'})-[:RELEVANT_TO]->(d:Document)
+        MATCH (d)-[:HAS_CLAUSES]->(c:Clause)
+        WHERE c.category = 'Governing Law' AND toLower(c.text) CONTAINS 'acme'
+        RETURN d.title AS contract, c.text AS clause
+    # When the user NAMES a document ("my acme agreement"), select it by its title METADATA —
+    # content relevance would also match siblings that merely mention the name, and their
+    # clauses would leak into the answer.
+    - q: "what is the governing law of my acme hosting agreement?"
+      cypher: |
+        MATCH (d:Document) WHERE toLower(d.title) CONTAINS 'acme'
+        MATCH (d)-[:HAS_CLAUSES]->(c:Clause)
+        WHERE c.category = 'Governing Law'
+        RETURN d.title AS contract, c.text AS clause
   properties:
     id:
       description: "Synthesized identity — producer:owner:documentUri:hash:index. Stable while the document is unchanged."
       metadata:
         identity: "true"
     docUri: "URI of the contract document this clause was extracted from (= the anchor's uri)."
-    category: "CUAD clause category — e.g. Parties, Agreement Date, Effective Date, Expiration Date, Renewal Term, Notice Period To Terminate Renewal, Governing Law, Most Favored Nation, Non-Compete, Exclusivity, No-Solicit Of Customers, No-Solicit Of Employees, Non-Disparagement, Termination For Convenience, Rofr/Rofo/Rofn, Change Of Control, Anti-Assignment, Revenue/Profit Sharing, Price Restrictions, Minimum Commitment, Ip Ownership Assignment, Joint Ip Ownership, License Grant, Non-Transferable License, Irrevocable Or Perpetual License, Source Code Escrow, Post-Termination Services, Audit Rights, Uncapped Liability, Cap On Liability, Liquidated Damages, Warranty Duration, Insurance, Covenant Not To Sue, Third Party Beneficiary."
+    category:
+      description: "CUAD clause category — e.g. Parties, Agreement Date, Effective Date, Expiration Date, Renewal Term, Notice Period To Terminate Renewal, Governing Law, Most Favored Nation, Non-Compete, Exclusivity, No-Solicit Of Customers, No-Solicit Of Employees, Non-Disparagement, Termination For Convenience, Rofr/Rofo/Rofn, Change Of Control, Anti-Assignment, Revenue/Profit Sharing, Price Restrictions, Minimum Commitment, Ip Ownership Assignment, Joint Ip Ownership, License Grant, Non-Transferable License, Irrevocable Or Perpetual License, Source Code Escrow, Post-Termination Services, Audit Rights, Uncapped Liability, Cap On Liability, Liquidated Damages, Warranty Duration, Insurance, Covenant Not To Sue, Third Party Beneficiary."
+      # The ENFORCED vocabulary (must mirror the clauseExtraction prompt's list exactly): the extract
+      # backend DROPS any record whose category is off this list — the prompt asks the model to skip
+      # off-taxonomy clauses, but a model that finds a real Force Majeure clause labels it anyway.
+      validation:
+        - rule: oneOf
+          values:
+            - Parties
+            - Agreement Date
+            - Effective Date
+            - Expiration Date
+            - Renewal Term
+            - Notice Period To Terminate Renewal
+            - Governing Law
+            - Most Favored Nation
+            - Non-Compete
+            - Exclusivity
+            - No-Solicit Of Customers
+            - No-Solicit Of Employees
+            - Non-Disparagement
+            - Termination For Convenience
+            - Rofr/Rofo/Rofn
+            - Change Of Control
+            - Anti-Assignment
+            - Revenue/Profit Sharing
+            - Price Restrictions
+            - Minimum Commitment
+            - Volume Restriction
+            - Ip Ownership Assignment
+            - Joint Ip Ownership
+            - License Grant
+            - Non-Transferable License
+            - Affiliate License-Licensor
+            - Affiliate License-Licensee
+            - Unlimited/All-You-Can-Eat-License
+            - Irrevocable Or Perpetual License
+            - Source Code Escrow
+            - Post-Termination Services
+            - Audit Rights
+            - Uncapped Liability
+            - Cap On Liability
+            - Liquidated Damages
+            - Warranty Duration
+            - Insurance
+            - Covenant Not To Sue
+            - Third Party Beneficiary
     text: "The verbatim clause text as it appears in the contract."
     answer: "The lawyer-style normalized answer where one exists (e.g. '30 days' for a notice period, 'Delaware' for governing law)."
+    section: "The clause's OWN section number as written in the contract (e.g. '10.2', '14.3', '6.1') — absent when the excerpt shows none."
+    title: "The clause's own heading as written (e.g. 'Effect of Termination', 'Choice of Law; Arbitration; Venue') — absent when the excerpt shows none."
+    references:
+      description: "Section numbers this clause CITES ('as discussed in Section 9 of this Agreement' → '9') — cross-references to sibling clauses of the same contract, joinable via c2.section IN c1.references. Absent when the clause cites nothing."
+      cardinality: LIST
     sourceChunkId: "Provenance — the ingested chunk this clause was extracted from."
