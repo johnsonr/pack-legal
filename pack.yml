@@ -1,0 +1,16 @@
+name: pack-legal
+description: >
+  Legal document intelligence: typed, graph-cached clause extraction over ingested contracts —
+  (d:Document)-[:HAS_CLAUSES]->(c:Clause) — with a clause vocabulary drawn from CUAD's 41
+  expert categories. Ask "what does the MSA say about liability caps?" and get the actual
+  clause rows, extracted once per document and served from the graph thereafter.
+version: 0.1.0
+author: Embabel
+url: https://github.com/johnsonr/pack-legal
+tags:
+  - legal
+  - contracts
+  - extraction
+exports:
+  - types/legal.yml
+  - producers/legal.yml

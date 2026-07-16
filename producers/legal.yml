@@ -1,0 +1,56 @@
+# Graph-cached clause extraction backing (d:Document)-[:HAS_CLAUSES]->(c:Clause).
+# kind: extract — the fan-out sibling of the aggregate producer: collect the contract's chunks
+# (incoming PART_OF, per-anchor by uri, owner-guarded), extract EVERY clause as a typed record in
+# one model call, and (cache kind graph) persist each record as a committed, scope-stamped node.
+# Repeat traversals over an unchanged contract serve the whole clause set with zero model calls;
+# a change to the document REPLACES its stale clause rows. Honest-empty: a document with no
+# recognizable clauses yields an empty array — never fabricated rows.
+- name: clauseExtraction
+  kind: extract
+  edgeType: HAS_CLAUSES
+  collect:
+    targetLabel: Chunk
+    # Chunks nest under Sections in structured (docling) documents — traverse the containment
+    # path however deep: (Chunk)-[:PART_OF|HAS_PARENT*]->(Document).
+    via: PART_OF|HAS_PARENT*
+    incoming: true
+    anchorLabel: Document
+    anchorKeyProperty: uri
+    text: "{{ text }}"
+  extract:
+    # Taxonomy discipline needs a stronger model than the vc_execution default: the cheap tier
+    # rewords category names freely, breaking the CUAD vocabulary contract. A portable ROLE,
+    # per-workspace remappable — never a concrete model name.
+    role: workhorse
+    prompt: |
+      You are given numbered excerpts from ONE legal contract.
+
+      {% for item in items %}[{{ item.n }}] {{ item.text }}
+      {% endfor %}
+
+      Extract every distinct CONTRACT CLAUSE present in these excerpts. For each clause return an
+      object with exactly these fields:
+        - "category": the clause type, using CUAD taxonomy names (Parties, Agreement Date,
+          Effective Date, Expiration Date, Renewal Term, Notice Period To Terminate Renewal,
+          Governing Law, Most Favored Nation, Non-Compete, Exclusivity, No-Solicit Of Customers,
+          No-Solicit Of Employees, Non-Disparagement, Termination For Convenience, Rofr/Rofo/Rofn,
+          Change Of Control, Anti-Assignment, Revenue/Profit Sharing, Price Restrictions,
+          Minimum Commitment, Volume Restriction, Ip Ownership Assignment, Joint Ip Ownership,
+          License Grant, Non-Transferable License, Affiliate License-Licensor,
+          Affiliate License-Licensee, Unlimited/All-You-Can-Eat-License,
+          Irrevocable Or Perpetual License, Source Code Escrow, Post-Termination Services,
+          Audit Rights, Uncapped Liability, Cap On Liability, Liquidated Damages,
+          Warranty Duration, Insurance, Covenant Not To Sue, Third Party Beneficiary)
+        - "text": the clause VERBATIM from the excerpt — never paraphrase, never invent
+        - "answer": the short normalized answer when the clause has one (a date, a duration like
+          '30 days', a jurisdiction like 'Delaware', a yes/no) — omit otherwise
+        - "sourceIndex": the excerpt number the clause came from
+
+      Only extract clauses actually present in the excerpts. Skip narrative, recitals, addresses,
+      signature blocks, and tables of contents. If nothing qualifies, return an empty array.
+
+      The "category" value MUST be copied VERBATIM from the list above — never invent, shorten,
+      reorder, or reword a category name (write 'Cap On Liability', never 'Liability Cap' or
+      'Liability'; write 'Termination For Convenience', never 'Termination'). A clause that fits
+      no listed category should be skipped.
+  cache: { kind: graph }

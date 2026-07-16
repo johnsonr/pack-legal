@@ -1,0 +1,44 @@
+# A CLAUSE extracted from one of YOUR ingested contracts — materialized on first traversal of
+# (d:Document)-[:HAS_CLAUSES]->(c:Clause), persisted per record (cache kind graph on the producer),
+# and served from the graph until the document's text changes. Categories follow the CUAD expert
+# taxonomy (41 labels: Parties, Agreement Date, Renewal Term, Governing Law, License Grant,
+# Cap On Liability, Uncapped Liability, Termination For Convenience, Anti-Assignment, Audit Rights,
+# Insurance, Non-Compete, Exclusivity, Ip Ownership Assignment, Source Code Escrow, …).
+#   MATCH (:Concept {value:'acme'})-[:RELEVANT_TO]->(d:Document)
+#   MATCH (d)-[:HAS_CLAUSES]->(c:Clause) WHERE c.category = 'Cap On Liability' RETURN c.text
+- name: Clause
+  visibility: internal
+  userAnchor: false
+  description: "A contract clause extracted from one of YOUR ingested documents, typed by CUAD category. Reach it ONLY from a bound Document via HAS_CLAUSES — e.g. MATCH (d:Document …)-[:HAS_CLAUSES]->(c:Clause) RETURN c.category, c.text. Filter with c.category (e.g. 'Cap On Liability', 'Renewal Term', 'Governing Law', 'License Grant', 'Parties'). To SUMMARIZE clauses, aggregate over c.text — never over document metadata."
+  virtualJoins:
+    - anchorLabel: Document
+      relationship: HAS_CLAUSES
+      keyField: uri
+      recordKeyField: docUri
+      producer: clauseExtraction
+      description: "On-demand, graph-cached clause extraction over the anchored contract's full text. First traversal extracts every clause as a typed row; repeats are plain graph hits until the document changes. One row per clause: c.category (CUAD taxonomy), c.text (the verbatim clause), c.sourceChunkId (provenance)."
+  # FEW-SHOT for the text-to-cypher generator: clause questions route through HAS_CLAUSES rows,
+  # never summarize() over metadata and never a naked Clause scan. Synthetic 'acme' placeholders.
+  examples:
+    - q: "what does my contract with acme say about liability?"
+      cypher: |
+        MATCH (:Concept {value:'acme'})-[:RELEVANT_TO]->(d:Document)
+        MATCH (d)-[:HAS_CLAUSES]->(c:Clause)
+        WHERE c.category IN ['Cap On Liability', 'Uncapped Liability']
+        RETURN c.category AS category, c.text AS clause
+    - q: "does my acme agreement auto-renew?"
+      cypher: |
+        MATCH (:Concept {value:'acme'})-[:RELEVANT_TO]->(d:Document)
+        MATCH (d)-[:HAS_CLAUSES]->(c:Clause)
+        WHERE c.category IN ['Renewal Term', 'Notice Period To Terminate Renewal']
+        RETURN c.category AS category, c.text AS clause
+  properties:
+    id:
+      description: "Synthesized identity — producer:owner:documentUri:hash:index. Stable while the document is unchanged."
+      metadata:
+        identity: "true"
+    docUri: "URI of the contract document this clause was extracted from (= the anchor's uri)."
+    category: "CUAD clause category — e.g. Parties, Agreement Date, Effective Date, Expiration Date, Renewal Term, Notice Period To Terminate Renewal, Governing Law, Most Favored Nation, Non-Compete, Exclusivity, No-Solicit Of Customers, No-Solicit Of Employees, Non-Disparagement, Termination For Convenience, Rofr/Rofo/Rofn, Change Of Control, Anti-Assignment, Revenue/Profit Sharing, Price Restrictions, Minimum Commitment, Ip Ownership Assignment, Joint Ip Ownership, License Grant, Non-Transferable License, Irrevocable Or Perpetual License, Source Code Escrow, Post-Termination Services, Audit Rights, Uncapped Liability, Cap On Liability, Liquidated Damages, Warranty Duration, Insurance, Covenant Not To Sue, Third Party Beneficiary."
+    text: "The verbatim clause text as it appears in the contract."
+    answer: "The lawyer-style normalized answer where one exists (e.g. '30 days' for a notice period, 'Delaware' for governing law)."
+    sourceChunkId: "Provenance — the ingested chunk this clause was extracted from."
