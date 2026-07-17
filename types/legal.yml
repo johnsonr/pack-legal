@@ -50,6 +50,16 @@
         MATCH (d)-[:HAS_CLAUSES]->(c:Clause)
         WHERE c.category IN ['Termination For Convenience', 'Post-Termination Services']
         RETURN c
+    # CITATION-COUNT questions are STRUCTURAL — the graph already carries them. Count the
+    # c.references list (sections the clause claims to cite) or hop the real REFERS_TO edge;
+    # NEVER re-derive citations from c.text with an LLM primitive (extract()/ai_*): the
+    # structured answer is already extracted, exact, and free.
+    - q: "which clauses cite two or more other clauses?"
+      cypher: |
+        MATCH (:Concept {value:'contract'})-[:RELEVANT_TO]->(d:Document)
+        MATCH (d)-[:HAS_CLAUSES]->(c:Clause)
+        WHERE size(c.references) >= 2
+        RETURN d.title AS contract, c
     # When the user NAMES a document ("my acme agreement"), select it by its title METADATA —
     # content relevance would also match siblings that merely mention the name, and their
     # clauses would leak into the answer.
@@ -118,6 +128,6 @@
     section: "The clause's OWN section number as written in the contract (e.g. '10.2', '14.3', '6.1') — absent when the excerpt shows none."
     title: "The clause's own heading as written (e.g. 'Effect of Termination', 'Choice of Law; Arbitration; Venue') — absent when the excerpt shows none."
     references:
-      description: "Section numbers this clause CITES ('as discussed in Section 9 of this Agreement' → '9') — cross-references to sibling clauses of the same contract, joinable via c2.section IN c1.references. Absent when the clause cites nothing."
+      description: "Section numbers this clause CITES ('as discussed in Section 9 of this Agreement' → '9') — cross-references to sibling clauses of the same contract, joinable via c2.section IN c1.references. Absent when the clause cites nothing. Citation COUNTS are structural: filter with size(c.references) >= N or hop the real REFERS_TO edge — never re-derive citations from c.text."
       cardinality: LIST
     sourceChunkId: "Provenance — the ingested chunk this clause was extracted from."
