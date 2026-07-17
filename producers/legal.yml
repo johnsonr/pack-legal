@@ -41,6 +41,8 @@
           Irrevocable Or Perpetual License, Source Code Escrow, Post-Termination Services,
           Audit Rights, Uncapped Liability, Cap On Liability, Liquidated Damages,
           Warranty Duration, Insurance, Covenant Not To Sue, Third Party Beneficiary)
+        - "name": a short display name for the clause — its own heading when the excerpt shows one,
+          otherwise the category plus its section (e.g. 'Cap On Liability §10.2'); never a sentence
         - "text": the clause VERBATIM from the excerpt — never paraphrase, never invent
         - "answer": the short normalized answer when the clause has one (a date, a duration like
           '30 days', a jurisdiction like 'Delaware', a yes/no) — omit otherwise
